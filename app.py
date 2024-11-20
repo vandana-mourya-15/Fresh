@@ -3,13 +3,14 @@ import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
 from keras.utils import load_img, img_to_array
- # Use standalone keras here
 
 app = Flask(__name__)
-
-# Load your pre-trained TensorFlow Lite model (ensure the path is correct)
-interpreter = tf.lite.Interpreter(model_path=r'uploads/best_model.tflite')
-interpreter.allocate_tensors()
+try:
+    interpreter = tf.lite.Interpreter(model_path=r'uploads/best_model.tflite')
+    interpreter.allocate_tensors()
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Error loading model: {e}")
 
 # Get input and output details
 input_details = interpreter.get_input_details()
@@ -103,5 +104,7 @@ if __name__ == '__main__':
     # Make sure the uploads directory exists
     if not os.path.exists('uploads'):
         os.makedirs('uploads')
-    
-    app.run(debug=True)
+
+    # Use the PORT environment variable for dynamic port binding (for platforms like Render)
+    port = int(os.environ.get('PORT', 5000))  # Default to 5000 for local development
+    app.run(debug=True, host='0.0.0.0', port=port)  # Ensure it listens on all interfaces
