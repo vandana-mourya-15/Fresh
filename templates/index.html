@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freshness Detector</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+            margin: 0;
+        }
+        .container {
+            width: 80%;
+            max-width: 500px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e0e0e0;
+            text-align: center;
+            position: relative;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        #uploaded-image, #captured-image {
+            display: block;
+            margin: 20px auto; /* Center the image horizontally */
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+            object-fit: contain;
+        }
+        
+        #camera-container {
+            display: none;
+            margin-top: 20px;
+        }
+        #camera-container video {
+            width: 100%;
+            max-width: 100%;
+            max-height: 250px;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+        }
+        #close-camera {
+            background-color: #f44336;
+            margin-top: 10px;
+        }
+        #prediction-result {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #007bff;
+        }
+        .fixed-predict {
+            position: sticky;
+            bottom: 20px;
+            width: 100%;
+        }
+    </style>
+    
+    
+    
+</head>
+<body>
+    <div class="container">
+        <h1>Freshness Detector</h1>
+    
+        <!-- Upload Image Section -->
+        <input type="file" id="fileInput" accept="image/*" onchange="handleFileUpload(event)" style="display: none;">
+        <button onclick="triggerFileInput()">Select Image</button>
+        <img id="uploaded-image" alt="Uploaded Image" style="display: none;">
+    
+        <br><br>
+    
+        <!-- Capture Image Section -->
+        <button onclick="startCamera()">Capture Image</button>
+        <div id="camera-container">
+            <video id="camera" autoplay></video><br>
+            <button onclick="captureImage()">Capture</button>
+            <button id="close-camera" onclick="closeCamera()">Close Camera</button>
+        </div>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <img id="captured-image" alt="Captured Image" style="display: none;">
+    
+        <h3 id="prediction-result"></h3>
+    
+        <!-- Predict Button -->
+        <button id="predict-button" onclick="makePrediction()">Predict</button>
+    </div>
+    
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const cameraContainer = document.getElementById('camera-container');
+    const video = document.getElementById('camera');
+    const canvas = document.getElementById('canvas');
+    const uploadedImage = document.getElementById('uploaded-image');
+    const capturedImage = document.getElementById('captured-image');
+    const predictionButton = document.getElementById('predict-button');
+    const closeCameraButton = document.getElementById('close-camera');
+    let imageBlob = null;
+    let stream = null;
+
+    // Trigger file input
+    function triggerFileInput() {
+        fileInput.click();
+    }
+
+    // Handle file upload
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            // Hide previously captured image if any
+            capturedImage.style.display = 'none';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedImage.src = e.target.result;
+                uploadedImage.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+            imageBlob = file;
+
+            // Scroll to the predict button
+            scrollToPredict();
+        }
+    }
+
+    // Start the camera
+    async function startCamera() {
+        cameraContainer.style.display = 'block';
+        closeCameraButton.style.display = 'inline-block';
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+        } catch (err) {
+            console.error("Error accessing camera: ", err);
+        }
+    }
+
+    // Capture image from camera
+    function captureImage() {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+
+        // Hide previously uploaded image if any
+        uploadedImage.style.display = 'none';
+
+        capturedImage.src = dataUrl;
+        capturedImage.style.display = 'block';
+
+        // Convert data URL to a Blob
+        fetch(dataUrl)
+            .then(res => res.blob())
+            .then(blob => {
+                imageBlob = blob;
+                closeCamera(); // Automatically close the camera after capturing
+                scrollToPredict();
+            });
+    }
+
+    // Close the camera
+    function closeCamera() {
+        if (stream) {
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+        }
+        cameraContainer.style.display = 'none';
+        closeCameraButton.style.display = 'none';
+    }
+
+    // Scroll to the predict button
+    function scrollToPredict() {
+        predictionButton.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Make prediction by sending the image to the backend
+    async function makePrediction() {
+        if (!imageBlob) {
+            alert("Please upload or capture an image first!");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', imageBlob, 'image.jpg');
+
+        try {
+            const response = await fetch('http://127.0.0.1:5000/predict', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+
+            if (result.error) {
+                document.getElementById('prediction-result').textContent = `Error: ${result.error}`;
+            } else {
+                document.getElementById('prediction-result').textContent = 
+                    `Predicted Class: ${result.predicted_class}, Confidence: ${result.confidence}`;
+            }
+        } catch (error) {
+            console.error("Error during prediction:", error);
+            document.getElementById('prediction-result').textContent = "Prediction failed.";
+        }
+    }
+</script>
+
+    
+</body>
+</html>
