@@ -18,3 +18,5 @@ EXPOSE 5000
 
 # Command to run your app
 CMD ["python", "app.py"]  # Change 'app.py' to your main file
+
+RUN python -m pip install --upgrade pip
