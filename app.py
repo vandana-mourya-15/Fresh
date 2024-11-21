@@ -111,9 +111,7 @@ if __name__ == '__main__':
     if not os.path.exists('uploads'):
         os.makedirs('uploads')
 
-    # Get the port from environment variable or use default (5000)
-    port = int(os.environ.get('PORT', 5000))
-    logging.info(f"Starting app on port {port}")
-    app.run(debug=True, host='0.0.0.0', port=port)
-
+    # Use the PORT environment variable for dynamic port binding (for platforms like Render)
+    port = int(os.environ.get('PORT', 10000))  # Default to 5000 for local development
+    app.run(debug=True, host='0.0.0.0', port=port)  # Ensure it listens on all interfaces
 
