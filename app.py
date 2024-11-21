@@ -3,8 +3,11 @@ import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
 from keras.utils import load_img, img_to_array
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
+
 try:
     interpreter = tf.lite.Interpreter(model_path=r'uploads/best_model.tflite')
     interpreter.allocate_tensors()
@@ -108,3 +111,4 @@ if __name__ == '__main__':
     # Use the PORT environment variable for dynamic port binding (for platforms like Render)
     port = int(os.environ.get('PORT', 5000))  # Default to 5000 for local development
     app.run(debug=True, host='0.0.0.0', port=port)  # Ensure it listens on all interfaces
+
